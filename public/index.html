@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kudos — openSUSE</title>
+<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="kudos.css"/>
+<style>
+/* Slide-in animation */
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.feed-item.slide-in {
+  animation: slideIn 0.5s ease forwards;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f0fff4;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.feed-item img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.feed-item .buttons button {
+  margin-bottom: 4px;
+}
+.feed-item .buttons a.button {
+  text-decoration:none;
+  padding:6px 12px;
+  background:#2e7d32;
+  color:white;
+  border-radius:6px;
+  text-align:center;
+}
+.prompt {
+  font-style: italic;
+  margin-bottom: 8px;
+  color: #2e7d32;
+}
+</style>
+</head>
+<body>
+<main class="container">
+  <header class="card header">
+    <h1>Kudos Feed</h1>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button id="newBtn">➕ Give Kudos</button>
+      <button id="toggleReceived">Received</button>
+      <button id="toggleGiven">Given</button>
+      <button id="backToFeed" style="display:none;">🏠 Back to Feed</button>
+    </div>
+  </header>
+
+  <section id="feed" class="card feed" style="margin-top:16px;"></section>
+
+  <footer style="text-align:center; margin-top:12px; color: #9fb0c8">
+    Prototype — X-User header used as actor. Replace with IDM/OAuth later.
+  </footer>
+</main>
+
+<!-- Give Kudos modal -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3>Give Kudos</h3>
+    <form id="kudosForm">
+      <label>To (username):<br/><input id="to" required /></label><br/>
+      <label>Type:<br/><select id="type"></select></label><br/>
+      <label>Message:<br/><textarea id="message" rows="3"></textarea></label><br/>
+      <label>CC (comma separated):<br/><input id="cc" /></label><br/>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button type="submit">Send</button>
+        <button type="button" id="cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+<script>
+const api = (p, opts) => fetch('/api'+p, opts).then(r=>r.json());
+const USER = prompt('Enter your username (placeholder auth)') || 'anonymous';
+
+let feedMode = 'all'; // all | received | given
+
+// escape HTML
+function escapeHtml(s){ return s?String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":"&#39;",'"':'&quot;'}[c])):''; }
+
+// dynamic motivational prompt
+function generatePrompt(feed){
+  if(!feed.length) return 'Be the first to recognize someone!';
+  const random = feed[Math.floor(Math.random()*feed.length)];
+  return `${escapeHtml(random.actor)} recently recognized ${escapeHtml(random.to)} for ${escapeHtml(random.type)} — be like them!`;
+}
+
+function avatarUrl(user) {
+  const hash = user ? md5(user.trim().toLowerCase()) : '';
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=48`;
+}
+
+// simple MD5 implementation or use an existing library
+function md5(str) {
+  // placeholder: you can use external library like blueimp-md5
+  return str; // replace with real MD5
+}
+
+async function loadFeed(){
+  const feedEl = document.getElementById('feed');
+  feedEl.innerHTML = '<div class="small">Loading...</div>';
+  let data;
+
+  if(feedMode==='all'){
+    data = await api('/feed');
+  } else {
+    const res = await api(`/users/${USER}/kudos`);
+    data = feedMode==='received' ? res.received : res.given;
+  }
+
+  feedEl.innerHTML = '';
+  if(!data.length){
+    feedEl.innerHTML = `<div class="small">No kudos yet. ${feedMode==='given'? "Give your first!" : "Receive your first!"}</div>`;
+    return;
+  }
+
+  // motivational prompt
+  const promptEl = document.createElement('div');
+  promptEl.className='prompt';
+  promptEl.innerText = generatePrompt(data);
+  feedEl.appendChild(promptEl);
+
+  // slide-in items one by one
+for(const k of data){
+  const el = document.createElement('div');
+  el.className = 'feed-item slide-in';
+
+  // Gravatar or fallback for recipient
+  const hash = k.to ? md5(k.to.trim().toLowerCase()) : '';
+  const avatarUrl = hash 
+    ? `https://www.gravatar.com/avatar/${hash}?s=48&d=identicon`
+    : '/img/default_avatar.png';
+
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <img src="${avatarUrl}" alt="${escapeHtml(k.to)} avatar">
+      <div style="flex:1">
+        <div style="font-weight:700">
+          <span>${escapeHtml(k.to)}</span> received <span>${escapeHtml(k.type)}</span> from <span>${escapeHtml(k.actor)}</span>
+        </div>
+        <div style="margin-top:6px">${escapeHtml(k.message)}</div>
+      </div>
+    </div>
+    <div class="buttons" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+  <button data-id="${k.id}" class="like">👍 ${k.likes||0}</button>
+  <button data-id="${k.id}" class="congrats">🎉 ${k.congrats||0}</button>
+  <button class="view" onclick="window.location='/r/${k.id}'">🔍 View</button>
+</div>`;
+  
+  feedEl.appendChild(el);
+  await new Promise(r => setTimeout(r, 200));
+}
+
+
+
+
+
+  // wire up reactions
+  document.querySelectorAll('.like').forEach(b=>b.onclick=async e=>{
+    const id=e.target.dataset.id; 
+    await fetch('/api/kudos/'+id+'/like',{method:'POST', headers:{'X-User':USER}});
+    loadFeed();
+  });
+  document.querySelectorAll('.congrats').forEach(b=>b.onclick=async e=>{
+    const id=e.target.dataset.id;
+    await fetch('/api/kudos/'+id+'/congrats',{method:'POST', headers:{'X-User':USER}});
+    loadFeed();
+  });
+}
+
+// modal handling
+const modal = document.getElementById('modal');
+document.getElementById('newBtn').onclick = async ()=>{
+  modal.style.display='flex';
+  const types = await api('/achievement-types');
+  const sel = document.getElementById('type'); sel.innerHTML='';
+  for(const t of types){
+    const o=document.createElement('option');
+    o.value=t.id;
+    o.textContent = t.icon? (t.icon+' '+escapeHtml(t.title)) : escapeHtml(t.title);
+    sel.appendChild(o);
+  }
+};
+document.getElementById('cancel').onclick = ()=> modal.style.display='none';
+
+document.getElementById('kudosForm').onsubmit = async ev=>{
+  ev.preventDefault();
+  const to = document.getElementById('to').value.trim();
+  const type = document.getElementById('type').value;
+  const message = document.getElementById('message').value;
+  const cc = document.getElementById('cc').value.split(',').map(s=>s.trim()).filter(Boolean);
+  await fetch('/api/kudos',{method:'POST', headers:{'Content-Type':'application/json','X-User':USER}, body: JSON.stringify({to,type,message,cc})});
+  modal.style.display='none';
+  loadFeed();
+};
+
+// toggle views
+document.getElementById('toggleReceived').onclick = ()=>{
+  feedMode='received';
+  document.getElementById('backToFeed').style.display='inline-block';
+  loadFeed();
+};
+document.getElementById('toggleGiven').onclick = ()=>{
+  feedMode='given';
+  document.getElementById('backToFeed').style.display='inline-block';
+  loadFeed();
+};
+document.getElementById('backToFeed').onclick = ()=>{
+  feedMode='all';
+  document.getElementById('backToFeed').style.display='none';
+  loadFeed();
+};
+
+// initial load
+loadFeed();
+</script>
+</body>
+</html>

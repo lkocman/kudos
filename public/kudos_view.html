@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kudos View</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="kudos.css">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body {
+  font-family: 'Source Sans Pro', sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  background: #e0f7e9;
+  margin:0;
+}
+.kudos-card-view {
+  background:white;
+  padding:32px;
+  border-radius:24px;
+  box-shadow:0 20px 40px rgba(0,0,0,0.1);
+  text-align:center;
+  max-width:500px;
+  width:90%;
+  position:relative;
+}
+.confetti {
+  position:absolute;
+  top:0; left:0; width:100%; height:100%; pointer-events:none;
+}
+.kudos-title {
+  font-size:1.8em;
+  font-weight:700;
+  margin-bottom:16px;
+}
+.avatars {
+  display:flex;
+  justify-content: center;
+  align-items: center;
+  gap:16px;
+  margin-bottom:16px;
+  position:relative;
+}
+.avatar {
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  object-fit:cover;
+}
+.avatar-label {
+  display:block;
+  margin-top:4px;
+  font-size:0.9em;
+}
+.arrow {
+  font-size:2em;
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+}
+.kudos-graphic {
+  max-width:200px;
+  margin:16px auto;
+}
+.kudos-message {
+  font-size:1.2em;          /* slightly bigger */
+  margin:16px 0;
+  background:#f0fff4;       /* light background for contrast */
+  padding:16px;
+  border-radius:16px;       /* nice rounded border */
+  box-shadow:0 4px 8px rgba(0,0,0,0.08);
+  line-height:1.5;
+  word-wrap: break-word;
+}
+.meta {
+  font-size:0.8em;
+  color:#555;
+  margin-bottom:16px;
+}
+.actions {
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  margin-top:12px;
+}
+button {
+  padding:8px 16px;
+  border:none;
+  border-radius:8px;
+  background:#2e7d32;
+  color:white;
+  cursor:pointer;
+  font-weight:600;
+}
+button:hover {
+  background:#27642a;
+}
+
+</style>
+</head>
+<body>
+<div class="kudos-card-view" id="kudosCard">
+  <div class="confetti" id="confetti"></div>
+
+  <div class="kudos-title" id="kudosType"></div>
+
+  <img id="kudosGraphic" class="kudos-graphic" src="" alt="Recognition graphic">
+
+  <div class="avatars">
+    <div>
+      <img id="avatarFrom" class="avatar" alt="From avatar">
+      <span class="avatar-label">From</span>
+      <span id="actorLabel" class="sr-only"></span>
+    </div>
+    <!--<div class="arrow" aria-hidden="true">➡️</div>-->
+    <div>
+      <img id="avatarTo" class="avatar" alt="To avatar">
+      <span class="avatar-label">To</span>
+      <span id="toLabel" class="sr-only"></span>
+    </div>
+  </div>
+
+  <p class="kudos-message" id="message"></p>
+
+  <p class="meta" id="createdAt"></p>
+
+  <p>👍 <span id="likes">0</span> &nbsp; 🎉 <span id="congrats">0</span></p>
+
+  <div class="actions">
+    <button id="backBtn">🏠 Back</button>
+    <button id="printBtn">🖨️ Print</button>
+    <button id="shareBtn">🔗 Share</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+function getGravatarUrl(username) {
+  const hash = username ? username.toLowerCase().trim() : '';
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=128`;
+}
+
+const id = window.location.pathname.split('/').pop();
+
+async function loadKudos() {
+  const res = await fetch('/api/kudos/' + id);
+  if(!res.ok) return alert('Kudos not found');
+  const k = await res.json();
+
+  // Title & graphic
+  document.getElementById('kudosType').innerText = k.type;
+  document.getElementById('kudosGraphic').src = k.graphic || '/img/default_recognition.png';
+  document.getElementById('kudosGraphic').alt = k.type + ' graphic';
+
+  // Message
+  document.getElementById('message').innerText = k.message;
+  document.getElementById('createdAt').innerText = new Date(k.createdAt).toLocaleString();
+
+  // Likes / Congrats
+  document.getElementById('likes').innerText = k.likes;
+  document.getElementById('congrats').innerText = k.congrats;
+
+  // Avatars
+  document.getElementById('avatarFrom').src = getGravatarUrl(k.actor);
+  document.getElementById('avatarTo').src = getGravatarUrl(k.to);
+  document.getElementById('actorLabel').innerText = k.actor;
+  document.getElementById('toLabel').innerText = k.to;
+
+  // Confetti
+  confetti({
+    particleCount: 150,
+    spread: 70,
+    origin: { y: 0.4 }
+  });
+}
+
+// Back / Print / Share
+document.getElementById('backBtn').onclick = ()=>window.history.back();
+document.getElementById('printBtn').onclick = ()=>window.print();
+document.getElementById('shareBtn').onclick = ()=>{
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(()=>alert('Link copied to clipboard!'));
+};
+
+loadKudos();
+</script>
+</body>
+</html>
