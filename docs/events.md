@@ -81,8 +81,9 @@ secret as a QR code on a projector, and closing an event is the undo if it
 leaks, so this doesn't need anything stricter.
 
 STEWARD replaced the old MODERATOR role, and MEMBER was dropped; neither
-granted anything. The backend moves such users to STEWARD and USER on
-start. Bots always create USERs.
+granted anything. The production seed (`backend/prisma/seed-prod.js`, run
+by `kudos-init.service`) moves such users to STEWARD and USER. Bots always
+create USERs.
 
 ### Time zones
 

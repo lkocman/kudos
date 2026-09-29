@@ -65,6 +65,16 @@ async function main() {
   }
 
   // ========================================================================
+  // 🧭 Retired roles
+  // MEMBER and MODERATOR never granted anything; STEWARD replaced MODERATOR.
+  // `prisma db push` leaves SQLite rows alone, and the client can't read a
+  // role it doesn't know, so move people off them here.
+  // ========================================================================
+  const stewards = await prisma.$executeRaw`UPDATE "User" SET "role" = 'STEWARD' WHERE "role" = 'MODERATOR'`;
+  const members = await prisma.$executeRaw`UPDATE "User" SET "role" = 'USER' WHERE "role" = 'MEMBER'`;
+  console.log(`🧭 Retired roles: ${stewards} MODERATOR → STEWARD, ${members} MEMBER → USER.`);
+
+  // ========================================================================
   // 🏁 Done
   // ========================================================================
   const counts = {
